@@ -12,7 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Cleaner {
-    private Params params = null;
+    private final Params params;
 
     public Cleaner(Params params) {
         this.params = params;
@@ -31,18 +31,25 @@ public class Cleaner {
     }
 
     private void renamePng(Map<String, String> renameToJpg) {
-        for(Map.Entry<String, String> e: renameToJpg.entrySet()) {
-            String png = e.getKey().replace(".PNG", ".JPG");
-            String json = e.getValue().replace(".PNG", ".JPG");
-            try {
-                log(e.getKey() + " rename to " + png);
-                FileUtils.moveFile(new File(e.getKey()), new File(png));
-                log(e.getValue() + " rename to " + json);
-                FileUtils.moveFile(new File(e.getValue()), new File(json));
-            } catch (IOException ex) {
-                log(Arrays.toString(ex.getStackTrace()));
+        log("renaming of png ...");
+
+        if(params.modeRenamePng == 1 ||params.modeRenamePng == 2) {
+            for (Map.Entry<String, String> e : renameToJpg.entrySet()) {
+                String png = e.getKey().replace(".PNG", ".JPG");
+                String json = e.getValue().replace(".PNG", ".JPG");
+                try {
+                    log(e.getKey() + " rename to " + png);
+                    FileUtils.moveFile(new File(e.getKey()), new File(png));
+                    log(e.getValue() + " rename to " + json);
+                    FileUtils.moveFile(new File(e.getValue()), new File(json));
+                } catch (IOException ex) {
+                    log(Arrays.toString(ex.getStackTrace()));
+                }
             }
+        } else {
+            log("dry run! rename png inactive.");
         }
+        log("renaming of png - done.");
     }
 
     private Collection<File> getAllMediaFiles() {
@@ -67,8 +74,7 @@ public class Cleaner {
 
     private void deleteEdited() {
         if (params.modeDeleteEdited == 1 || params.modeDeleteEdited == 2) {
-
-            log("collect delete edited ($edited_tag) if original exists ...");
+            log("collect delete edited (" + params.editedTag + ") if original exists ...");
 
             List<String> missingOriginal = new ArrayList<>();
             List<String> deleteEdited = new ArrayList<>();
@@ -100,7 +106,7 @@ public class Cleaner {
                 }
             }
 
-            log("collect delete edited ($edited_tag) if original exists - done.");
+            log("collect delete edited (" + params.editedTag + ") if original exists - done.");
 
             log("delete edited tag list ...");
             if (params.modeDeleteEdited == 1) {
@@ -113,7 +119,7 @@ public class Cleaner {
                     }
                 }
             } else {
-                log("not active");
+                log("dry run! no deletion.");
             }
             log("delete edited tag list - done.");
         }
@@ -193,24 +199,29 @@ public class Cleaner {
     }
 
     private Map<String, String> updateExif(Map<String, String> updateList) {
+        log("updateExif ...");
         Map<String, String> renameToJpg = new HashMap<>();
 
         if (params.modeUpdateExif == 1) {
+            long counter = 1;
+            long size = updateList.size();
             for (Map.Entry<String, String> e : updateList.entrySet()) {
                 String[] command = {"exiftool", "-d", "%s", "-tagsfromfile", e.getValue(),
                         "-GPSAltitude<GeoDataAltitude", "-GPSLatitude<GeoDataLatitude", "-GPSLatitudeRef<GeoDataLatitude", "-GPSLongitude<GeoDataLongitude",
                         "-GPSLongitudeRef<GeoDataLongitude", "-Keywords<Tags", "-Subject<Tags", "-Caption-Abstract<Description", "-ImageDescription<Description",
                         "-ExifIFD:DateTimeOriginal<PhotoTakenTimeTimestamp", "-IFD0:ModifyDate<PhotoTakenTimeTimestamp", "-filecreatedate<phototakentimetimestamp",
-                        "-System:FileModifyDate<phototakentimetimestamp", "-ext", "*", "-overwrite_original", "-progress", "-efile", params.logUpdateExifErrorsPath, e.getKey()
+                        "-System:FileModifyDate<phototakentimetimestamp", "-ext", "*", "-overwrite_original", "-progress", e.getKey()
                 };
 
                 ProcessBuilder builder = new ProcessBuilder(command);
                 try {
+                    log("(" + counter++ + "/" + size + ") update " + e.getKey() + " from " + e.getValue());
+
                     Process p = builder.start();
                     int result = p.waitFor();
                     if (result != 0) {
                         String error = IOUtils.toString(p.getErrorStream(), StandardCharsets.UTF_8.name());
-                        log("error: " + error);
+                        log("error: " + error.trim());
 
                         if (error.startsWith("Error: Not a valid PNG (looks more like a JPEG)")) {
                             renameToJpg.put(e.getKey(), e.getValue());
@@ -221,9 +232,13 @@ public class Cleaner {
                     log("exception: " + Arrays.toString(ex.getStackTrace()));
                 }
             }
+        } else if (params.modeUpdateExif == 2) {
+            log("dry run! no exif update.");
         } else {
             log("updateExif not active.");
         }
+
+        log("updateExif - done.");
 
         return renameToJpg;
     }

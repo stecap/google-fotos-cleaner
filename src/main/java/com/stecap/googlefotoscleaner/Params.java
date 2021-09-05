@@ -20,10 +20,4 @@ public class Params {
 
     @Parameter(names = "-modeRenamePng", description = "1=active, 2=dry run, 0=inactive")
     public Integer modeRenamePng = 1;
-
-    @Parameter(names = "-logFilePath", description = "Log file path")
-    public String logFilePath;
-
-    @Parameter(names = "-logUpdateExifErrorsPath", required = true, description = "Log file path for update exif errors")
-    public String logUpdateExifErrorsPath;
 }
