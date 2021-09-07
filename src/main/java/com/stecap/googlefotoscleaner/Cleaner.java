@@ -20,28 +20,30 @@ public class Cleaner {
 
     public void clean() {
         deleteEdited();
-        Map<String, String> updateExif = collectUpdateExif();
-        Map<String, String> renameToJpg = updateExif(updateExif);
-        renamePng(renameToJpg);
-        updateExif(renameToJpg);
+        Map<String, String> allItems = collectUpdateExif();
+        Map<String, String> errorPngToJson = updateExif(allItems);
+        Map<String, String> jpgToJson = renamePngToJpg(errorPngToJson);
+        updateExif(jpgToJson);
     }
 
     private void log(String message) {
         System.out.println(message);
     }
 
-    private void renamePng(Map<String, String> renameToJpg) {
+    private Map<String, String> renamePngToJpg(Map<String, String> pngToJson) {
+        Map<String, String> jpgToJson = new HashMap<>();
         log("renaming of png ...");
 
         if(params.modeRenamePng == 1 ||params.modeRenamePng == 2) {
-            for (Map.Entry<String, String> e : renameToJpg.entrySet()) {
-                String png = e.getKey().replace(".PNG", ".JPG");
-                String json = e.getValue().replace(".PNG", ".JPG");
+            for (Map.Entry<String, String> e : pngToJson.entrySet()) {
+                String jpg = e.getKey().replace(".PNG", ".JPG");
+                String jpgJson = e.getValue().replace(".PNG", ".JPG");
                 try {
-                    log(e.getKey() + " rename to " + png);
-                    FileUtils.moveFile(new File(e.getKey()), new File(png));
-                    log(e.getValue() + " rename to " + json);
-                    FileUtils.moveFile(new File(e.getValue()), new File(json));
+                    log(e.getKey() + " rename to " + jpg);
+                    FileUtils.moveFile(new File(e.getKey()), new File(jpg));
+                    log(e.getValue() + " rename to " + jpgJson);
+                    FileUtils.moveFile(new File(e.getValue()), new File(jpgJson));
+                    jpgToJson.put(jpg, jpgJson);
                 } catch (IOException ex) {
                     log(Arrays.toString(ex.getStackTrace()));
                 }
@@ -50,6 +52,7 @@ public class Cleaner {
             log("dry run! rename png inactive.");
         }
         log("renaming of png - done.");
+        return jpgToJson;
     }
 
     private Collection<File> getAllMediaFiles() {
