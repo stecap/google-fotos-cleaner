@@ -1,5 +1,7 @@
 package com.stecap.googlefotoscleaner;
 
+import com.stecap.googlefotoscleaner.params.Params;
+import com.stecap.googlefotoscleaner.params.ParamsCommandExifCleaner;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -11,11 +13,13 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Cleaner {
+public class ExifCleaner {
     private final Params params;
+    private final ParamsCommandExifCleaner paramsCommandExifCleaner;
 
-    public Cleaner(Params params) {
+    public ExifCleaner(Params params, ParamsCommandExifCleaner paramsCommandExifCleaner) {
         this.params = params;
+        this.paramsCommandExifCleaner = paramsCommandExifCleaner;
     }
 
     public void clean() {
@@ -34,7 +38,7 @@ public class Cleaner {
         Map<String, String> jpgToJson = new HashMap<>();
         log("renaming of png ...");
 
-        if(params.modeRenamePng == 1 ||params.modeRenamePng == 2) {
+        if(paramsCommandExifCleaner.modeRenamePng == 1 ||paramsCommandExifCleaner.modeRenamePng == 2) {
             for (Map.Entry<String, String> e : pngToJson.entrySet()) {
                 String jpg = e.getKey().replace(".PNG", ".JPG");
                 String jpgJson = e.getValue().replace(".PNG", ".JPG");
@@ -55,38 +59,18 @@ public class Cleaner {
         return jpgToJson;
     }
 
-    private Collection<File> getAllMediaFiles() {
-        String[] extensions = {
-                "png", "jpg", "jpeg", "heic", "mov", "gif", "mp4", "PNG", "JPG", "JPEG", "HEIC", "MOV", "GIF", "MP4"
-        };
-        Collection<File> files = FileUtils.listFiles(new File(params.googleFotosPath), extensions, true);
-
-        Map<String, Integer> extensionCounter = new HashMap<>();
-        for (File file : files) {
-            String extension = FilenameUtils.getExtension(file.getAbsolutePath());
-            extensionCounter.merge(extension, 1, Integer::sum);
-        }
-
-        log("Collected files:");
-        for (Map.Entry<String, Integer> ext : extensionCounter.entrySet()) {
-            log(ext.getKey() + ":" + ext.getValue());
-        }
-
-        return files;
-    }
-
     private void deleteEdited() {
-        if (params.modeDeleteEdited == 1 || params.modeDeleteEdited == 2) {
-            log("collect delete edited (" + params.editedTag + ") if original exists ...");
+        if (paramsCommandExifCleaner.modeDeleteEdited == 1 || paramsCommandExifCleaner.modeDeleteEdited == 2) {
+            log("collect delete edited (" + paramsCommandExifCleaner.editedTag + ") if original exists ...");
 
             List<String> missingOriginal = new ArrayList<>();
             List<String> deleteEdited = new ArrayList<>();
 
-            for (File file : getAllMediaFiles()) {
+            for (File file : new FilesManager().getAllMediaFiles(params.googleFotosPath)) {
                 String fileAbsolutePath = file.getAbsolutePath();
                 String fileName = FilenameUtils.getName(fileAbsolutePath);
-                if (fileName.contains(params.editedTag)) {
-                    String cleanedFileName = file.getAbsolutePath().replace(params.editedTag, "");
+                if (fileName.contains(paramsCommandExifCleaner.editedTag)) {
+                    String cleanedFileName = file.getAbsolutePath().replace(paramsCommandExifCleaner.editedTag, "");
                     if (new File(cleanedFileName).exists()) {
                         deleteEdited.add(fileAbsolutePath);
                     } else {
@@ -109,10 +93,10 @@ public class Cleaner {
                 }
             }
 
-            log("collect delete edited (" + params.editedTag + ") if original exists - done.");
+            log("collect delete edited (" + paramsCommandExifCleaner.editedTag + ") if original exists - done.");
 
             log("delete edited tag list ...");
-            if (params.modeDeleteEdited == 1) {
+            if (paramsCommandExifCleaner.modeDeleteEdited == 1) {
                 for (String delete : deleteEdited) {
                     log("delete: " + delete);
                     try {
@@ -133,10 +117,10 @@ public class Cleaner {
     private Map<String, String> collectUpdateExif() {
         Map<String, String> mapMediaToJson = new HashMap<>();
 
-        if (params.modeUpdateExif == 1 || params.modeUpdateExif == 2) {
+        if (paramsCommandExifCleaner.modeUpdateExif == 1 || paramsCommandExifCleaner.modeUpdateExif == 2) {
             log("collect for update exif ...");
 
-            for (File file : getAllMediaFiles()) {
+            for (File file : new FilesManager().getAllMediaFiles(params.googleFotosPath)) {
                 String fileNameWithExtension = FilenameUtils.getName(file.getAbsolutePath());
                 String fileName = FilenameUtils.getBaseName(file.getAbsolutePath());
                 String fileExtension = "." + FilenameUtils.getExtension(file.getAbsolutePath());
@@ -174,7 +158,7 @@ public class Cleaner {
                                 log("#3 " + maxLengthFileNameWithExtensionJson + " <-- " + fileNameWithExtension);
                             }
 
-                            if (!fileNameWithExtension.contains(params.editedTag)) {
+                            if (!fileNameWithExtension.contains(paramsCommandExifCleaner.editedTag)) {
                                 log("#4 (!) missing json: " + file.getAbsolutePath());
                                 log("---------");
                                 log("json: " + json);
@@ -205,7 +189,7 @@ public class Cleaner {
         log("updateExif ...");
         Map<String, String> renameToJpg = new HashMap<>();
 
-        if (params.modeUpdateExif == 1) {
+        if (paramsCommandExifCleaner.modeUpdateExif == 1) {
             long counter = 1;
             long size = updateList.size();
             for (Map.Entry<String, String> e : updateList.entrySet()) {
@@ -235,7 +219,7 @@ public class Cleaner {
                     log("exception: " + Arrays.toString(ex.getStackTrace()));
                 }
             }
-        } else if (params.modeUpdateExif == 2) {
+        } else if (paramsCommandExifCleaner.modeUpdateExif == 2) {
             log("dry run! no exif update.");
         } else {
             log("updateExif not active.");
